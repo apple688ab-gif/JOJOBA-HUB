@@ -1,6 +1,7 @@
 
 -- JOJOBA HUB | Summer Hunt
 -- Version 0.1 - UI Prototype
+print("JOJOBA HUB - Game detection test ready")
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
