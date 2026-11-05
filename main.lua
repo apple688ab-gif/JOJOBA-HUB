@@ -1,96 +1,127 @@
 
--- JOJOBA HUB | Summer Hunt
--- Version 0.1 - UI Prototype
-print("JOJOBA HUB - Game detection test ready")
+-- JOJOBA HUB | AUTO CLICKER
+-- Red & Blue Edition
 
 local Players = game:GetService("Players")
+local VIM = game:GetService("VirtualInputManager")
+local HttpService = game:GetService("HttpService")
 local player = Players.LocalPlayer
 local parent = player:WaitForChild("PlayerGui")
 
-local old = parent:FindFirstChild("JOJOBA_HUB")
-if old then old:Destroy() end
+local FILE = "jojoba_clicker_config.json"
 
-local Settings = {
-    AutoFarm = false,
-    MatchmakingOnly = true,
-    AutoPlace = false,
-    AutoUpgrade = false,
-    AutoModifiers = false,
-    StopOnSecretPortal = true,
-    Preferred = {},
-    Avoid = {},
-    Fallback = "Pause"
-}
-
-local Colors = {
-    Background = Color3.fromRGB(12, 17, 30),
-    Panel = Color3.fromRGB(24, 31, 49),
-    Red = Color3.fromRGB(235, 50, 70),
-    Blue = Color3.fromRGB(45, 125, 255),
-    White = Color3.fromRGB(245, 247, 255)
-}
-
-local function create(className, properties, parentObject)
-    local object = Instance.new(className)
-    for key, value in pairs(properties) do
-        object[key] = value
-    end
-    object.Parent = parentObject
-    return object
+if _G.JOJOBA_CLICKER_STOP then
+    _G.JOJOBA_CLICKER_STOP()
 end
 
-local gui = create("ScreenGui", {
-    Name = "JOJOBA_HUB",
+local running = false
+local alive = true
+local steps = {}
+local current = 1
+local savedEnabled = false
+
+local function save()
+    if type(writefile) == "function" then
+        pcall(function()
+            writefile(FILE, HttpService:JSONEncode({
+                steps = steps,
+                enabled = running
+            }))
+        end)
+    end
+end
+
+local function load()
+    if type(isfile) == "function"
+        and type(readfile) == "function" then
+        local ok, result = pcall(function()
+            if isfile(FILE) then
+                return HttpService:JSONDecode(
+                    readfile(FILE)
+                )
+            end
+        end)
+
+        if ok and type(result) == "table" then
+            if type(result.steps) == "table" then
+                steps = result.steps
+            end
+            savedEnabled = result.enabled == true
+        end
+    end
+end
+
+load()
+
+local old = parent:FindFirstChild("JOJOBA_Clicker")
+if old then old:Destroy() end
+
+local function make(class, props, parentObj)
+    local obj = Instance.new(class)
+    for k,v in pairs(props) do
+        obj[k] = v
+    end
+    obj.Parent = parentObj
+    return obj
+end
+
+local bg = Color3.fromRGB(16,19,34)
+local panel = Color3.fromRGB(29,36,58)
+local blue = Color3.fromRGB(42,118,245)
+local red = Color3.fromRGB(220,51,75)
+local white = Color3.fromRGB(242,246,255)
+
+local gui = make("ScreenGui", {
+    Name = "JOJOBA_Clicker",
     ResetOnSpawn = false
 }, parent)
 
-local main = create("Frame", {
-    Size = UDim2.fromOffset(350, 450),
-    Position = UDim2.new(0.5, -175, 0.5, -225),
-    BackgroundColor3 = Colors.Background,
+local main = make("Frame", {
+    Size = UDim2.fromOffset(340,435),
+    Position = UDim2.new(.5,-170,.5,-217),
+    BackgroundColor3 = bg,
     Active = true,
     Draggable = true
 }, gui)
 
-create("UICorner", {
-    CornerRadius = UDim.new(0, 14)
+make("UICorner", {
+    CornerRadius = UDim.new(0,13)
 }, main)
 
-create("UIStroke", {
-    Color = Colors.Blue,
+make("UIStroke", {
+    Color = blue,
     Thickness = 2
 }, main)
 
-create("TextLabel", {
-    Size = UDim2.new(1, -55, 0, 48),
-    Position = UDim2.fromOffset(12, 0),
+make("TextLabel", {
+    Text = "JOJOBA HUB | AUTO CLICKER",
+    TextColor3 = white,
+    Font = Enum.Font.GothamBold,
+    TextSize = 16,
     BackgroundTransparency = 1,
-    Text = "JOJOBA HUB | SUMMER HUNT",
-    TextColor3 = Colors.White,
-    TextSize = 17,
-    Font = Enum.Font.GothamBold
+    Size = UDim2.new(1,-55,0,44)
 }, main)
 
-local hide = create("TextButton", {
-    Size = UDim2.fromOffset(35, 30),
-    Position = UDim2.new(1, -43, 0, 9),
+local minimize = make("TextButton", {
     Text = "-",
-    TextColor3 = Colors.White,
-    BackgroundColor3 = Colors.Red
+    TextColor3 = white,
+    BackgroundColor3 = red,
+    Position = UDim2.new(1,-42,0,7),
+    Size = UDim2.fromOffset(32,30)
 }, main)
 
-local reopen = create("TextButton", {
-    Size = UDim2.fromOffset(110, 40),
-    Position = UDim2.fromOffset(15, 130),
-    Text = "JOJOBA HUB",
-    TextColor3 = Colors.White,
-    BackgroundColor3 = Colors.Blue,
+local reopen = make("TextButton", {
+    Text = "JOJOBA",
+    TextColor3 = white,
+    BackgroundColor3 = blue,
+    Position = UDim2.fromOffset(12,125),
+    Size = UDim2.fromOffset(90,38),
     Visible = false,
     Active = true,
     Draggable = true
 }, gui)
 
-hide.MouseButton1Click:Connect(function()
+minimize.MouseButton1Click:Connect(function()
     main.Visible = false
     reopen.Visible = true
 end)
@@ -100,158 +131,267 @@ reopen.MouseButton1Click:Connect(function()
     reopen.Visible = false
 end)
 
-local scroll = create("ScrollingFrame", {
-    Position = UDim2.fromOffset(12, 55),
-    Size = UDim2.new(1, -24, 1, -100),
+local list = make("ScrollingFrame", {
+    Position = UDim2.fromOffset(12,52),
+    Size = UDim2.new(1,-24,1,-110),
     BackgroundTransparency = 1,
-    ScrollBarThickness = 4,
     AutomaticCanvasSize = Enum.AutomaticSize.Y,
-    CanvasSize = UDim2.fromOffset(0, 0)
+    CanvasSize = UDim2.fromOffset(0,0),
+    ScrollBarThickness = 3
 }, main)
 
-create("UIListLayout", {
-    Padding = UDim.new(0, 7)
-}, scroll)
+make("UIListLayout", {
+    Padding = UDim.new(0,7),
+    SortOrder = Enum.SortOrder.LayoutOrder
+}, list)
 
-local status = create("TextLabel", {
-    Position = UDim2.new(0, 10, 1, -43),
-    Size = UDim2.new(1, -20, 0, 35),
-    BackgroundTransparency = 1,
-    Text = "JOJOBA HUB READY | UI ONLY",
-    TextColor3 = Colors.White,
+local status = make("TextLabel", {
+    Text = "Ready | Add steps, then START",
+    TextColor3 = white,
     TextSize = 11,
-    TextWrapped = true
+    TextWrapped = true,
+    BackgroundTransparency = 1,
+    Position = UDim2.new(0,8,1,-53),
+    Size = UDim2.new(1,-16,0,35)
 }, main)
 
-local function addRow(label, initial, callback)
-    local frame = create("Frame", {
-        Size = UDim2.new(1, -5, 0, 40),
-        BackgroundColor3 = Colors.Panel
-    }, scroll)
-
-    create("UICorner", {
-        CornerRadius = UDim.new(0, 8)
-    }, frame)
-
-    create("TextLabel", {
-        Size = UDim2.new(0.63, 0, 1, 0),
-        Position = UDim2.fromOffset(8, 0),
-        BackgroundTransparency = 1,
+local function button(label, callback)
+    local b = make("TextButton", {
         Text = label,
-        TextColor3 = Colors.White,
-        TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, frame)
+        TextColor3 = white,
+        TextSize = 12,
+        BackgroundColor3 = blue,
+        Size = UDim2.new(1,-5,0,32)
+    }, list)
 
-    local button = create("TextButton", {
-        Size = UDim2.new(0.3, 0, 0, 30),
-        Position = UDim2.new(0.68, 0, 0, 5),
-        BackgroundColor3 = Colors.Blue,
-        TextColor3 = Colors.White,
-        Text = initial,
-        TextSize = 12
-    }, frame)
+    make("UICorner", {
+        CornerRadius = UDim.new(0,7)
+    }, b)
 
-    create("UICorner", {
-        CornerRadius = UDim.new(0, 7)
-    }, button)
-
-    button.MouseButton1Click:Connect(function()
-        callback(button)
-    end)
-
-    return button
+    b.MouseButton1Click:Connect(callback)
+    return b
 end
 
-local function addToggle(label, key)
-    local button = addRow(
-        label,
-        Settings[key] and "ON" or "OFF",
-        function(b)
-            Settings[key] = not Settings[key]
-            b.Text = Settings[key] and "ON" or "OFF"
-            b.BackgroundColor3 =
-                Settings[key] and Colors.Blue or Colors.Red
-        end
+local function input(label, default)
+    local wrap = make("Frame", {
+        Size = UDim2.new(1,-5,0,56),
+        BackgroundColor3 = panel
+    }, list)
+
+    make("UICorner", {
+        CornerRadius = UDim.new(0,7)
+    }, wrap)
+
+    make("TextLabel", {
+        Text = label,
+        TextColor3 = white,
+        TextSize = 12,
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(7,2),
+        Size = UDim2.new(1,-14,0,20),
+        TextXAlignment = Enum.TextXAlignment.Left
+    }, wrap)
+
+    local tb = make("TextBox", {
+        Text = default,
+        TextColor3 = white,
+        TextSize = 13,
+        ClearTextOnFocus = false,
+        BackgroundColor3 = bg,
+        Position = UDim2.fromOffset(7,25),
+        Size = UDim2.new(1,-14,0,26)
+    }, wrap)
+
+    make("UICorner", {
+        CornerRadius = UDim.new(0,5)
+    }, tb)
+
+    return tb
+end
+
+local xInput = input("X Position (pixels)", "500")
+local yInput = input("Y Position (pixels)", "350")
+local delayInput = input(
+    "Wait BEFORE tap (minutes)", "1"
+)
+
+local function tap(x,y)
+    x = math.floor(x)
+    y = math.floor(y)
+
+    VIM:SendMouseButtonEvent(
+        x,y,0,true,game,0
     )
 
-    button.BackgroundColor3 =
-        Settings[key] and Colors.Blue or Colors.Red
+    task.wait(0.08)
+
+    VIM:SendMouseButtonEvent(
+        x,y,0,false,game,0
+    )
 end
 
-addToggle("Auto Farm", "AutoFarm")
-addToggle("Matchmaking Only", "MatchmakingOnly")
-addToggle("Auto Place", "AutoPlace")
-addToggle("Auto Upgrade", "AutoUpgrade")
-addToggle("Auto Modifiers", "AutoModifiers")
-addToggle("Stop on Secret Portal", "StopOnSecretPortal")
+local refresh
 
-local function addModifierInput(label, key)
-    local frame = create("Frame", {
-        Size = UDim2.new(1, -5, 0, 72),
-        BackgroundColor3 = Colors.Panel
-    }, scroll)
-
-    create("UICorner", {
-        CornerRadius = UDim.new(0, 8)
-    }, frame)
-
-    create("TextLabel", {
-        Size = UDim2.new(1, -15, 0, 28),
-        Position = UDim2.fromOffset(8, 0),
-        BackgroundTransparency = 1,
-        Text = label,
-        TextColor3 = Colors.White,
-        TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left
-    }, frame)
-
-    local input = create("TextBox", {
-        Size = UDim2.new(1, -16, 0, 32),
-        Position = UDim2.fromOffset(8, 32),
-        BackgroundColor3 = Colors.Background,
-        TextColor3 = Colors.White,
-        PlaceholderText = "Modifier 1, Modifier 2",
-        Text = "",
-        TextSize = 12,
-        ClearTextOnFocus = false
-    }, frame)
-
-    create("UICorner", {
-        CornerRadius = UDim.new(0, 6)
-    }, input)
-
-    input.FocusLost:Connect(function()
-        local names = {}
-
-        for name in input.Text:gmatch("[^,]+") do
-            name = name:match("^%s*(.-)%s*$")
-            if name ~= "" then
-                table.insert(names, name)
-            end
+refresh = function()
+    for _,child in ipairs(list:GetChildren()) do
+        if child.Name == "StepRow" then
+            child:Destroy()
         end
+    end
 
-        Settings[key] = names
-        status.Text = key .. ": "
-            .. tostring(#names) .. " selected"
-    end)
+    for i,step in ipairs(steps) do
+        local index = i
+
+        local row = make("Frame", {
+            Name = "StepRow",
+            Size = UDim2.new(1,-5,0,35),
+            BackgroundColor3 = panel
+        }, list)
+
+        make("TextLabel", {
+            Text = string.format(
+                "%d. (%d,%d) after %.2f min",
+                i,
+                tonumber(step.x) or 0,
+                tonumber(step.y) or 0,
+                tonumber(step.minutes) or 0
+            ),
+            TextColor3 = white,
+            TextSize = 11,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            BackgroundTransparency = 1,
+            Position = UDim2.fromOffset(7,0),
+            Size = UDim2.new(1,-60,1,0)
+        }, row)
+
+        local del = make("TextButton", {
+            Text = "X",
+            TextColor3 = white,
+            BackgroundColor3 = red,
+            Position = UDim2.new(1,-45,0,4),
+            Size = UDim2.fromOffset(38,27)
+        }, row)
+
+        del.MouseButton1Click:Connect(function()
+            running = false
+            table.remove(steps,index)
+            current = 1
+            save()
+            refresh()
+        end)
+    end
 end
 
-addModifierInput("Preferred Modifiers", "Preferred")
-addModifierInput("Avoid Modifiers", "Avoid")
+button("ADD TAP STEP", function()
+    local x = tonumber(xInput.Text)
+    local y = tonumber(yInput.Text)
+    local m = tonumber(delayInput.Text)
 
-addRow("Fallback", "PAUSE", function(button)
-    if Settings.Fallback == "Pause" then
-        Settings.Fallback = "FirstAllowed"
-        button.Text = "ALLOWED"
-    else
-        Settings.Fallback = "Pause"
-        button.Text = "PAUSE"
+    if not x or not y or not m or m < 0 then
+        status.Text = "Invalid coordinates or minutes"
+        return
+    end
+
+    table.insert(steps, {
+        x = x,
+        y = y,
+        minutes = m
+    })
+
+    save()
+    refresh()
+    status.Text = "Added step " .. #steps
+end)
+
+local start = button("START / STOP", function()
+    if #steps == 0 then
+        status.Text = "Add at least one step"
+        return
+    end
+
+    running = not running
+    current = 1
+    save()
+
+    status.Text = running
+        and "RUNNING | Repeating sequence"
+        or "STOPPED"
+end)
+
+start.BackgroundColor3 = red
+
+button("CLEAR ALL STEPS", function()
+    running = false
+    steps = {}
+    current = 1
+    save()
+    refresh()
+    status.Text = "Steps cleared"
+end)
+
+refresh()
+
+_G.JOJOBA_CLICKER_STOP = function()
+    alive = false
+    running = false
+    gui:Destroy()
+end
+
+if savedEnabled and #steps > 0 then
+    running = true
+    status.Text = "AUTO-RESUMED"
+end
+
+task.spawn(function()
+    while alive do
+        if running and #steps > 0 then
+            if current > #steps then
+                current = 1
+            end
+
+            local step = steps[current]
+
+            if step then
+                local duration = math.max(
+                    0,
+                    tonumber(step.minutes) or 0
+                ) * 60
+
+                local elapsed = 0
+
+                while alive and running
+                    and elapsed < duration do
+
+                    local delta = math.min(
+                        0.25,
+                        duration - elapsed
+                    )
+
+                    task.wait(delta)
+                    elapsed = elapsed + delta
+                end
+
+                if alive and running then
+                    local ok,err = pcall(
+                        tap,
+                        tonumber(step.x) or 0,
+                        tonumber(step.y) or 0
+                    )
+
+                    if not ok then
+                        running = false
+                        status.Text = "Tap failed: "
+                            .. tostring(err)
+                        save()
+                    else
+                        current = current + 1
+                    end
+                end
+            end
+        else
+            task.wait(0.2)
+        end
     end
 end)
 
-addRow("Check Status", "CHECK", function()
-    status.Text = "Settings ready | Automation not connected"
-end)
-
-print("JOJOBA HUB UI loaded successfully!")
+print("JOJOBA HUB Auto Clicker loaded!")
