@@ -28,12 +28,16 @@ local activeTouch = false
 
 local gui
 
+
+local activeX, activeY = 0, 0
+
 local function releaseTouch()
     pcall(function()
-        VIM:SendTouchEvent(1, 2, 0, 0)
+        VIM:SendTouchEvent(1, 2, activeX, activeY)
     end)
     activeTouch = false
 end
+
 
 local function save()
     if type(writefile) ~= "function" then
@@ -400,8 +404,11 @@ local function tap(x, y)
     touchBusy = true
 
     local started = pcall(function()
-        VIM:SendTouchEvent(1, 0, x, y)
-        activeTouch = true
+    
+activeX, activeY = x, y
+VIM:SendTouchEvent(1, 0, x, y)
+activeTouch = true
+
     end)
 
     if started then
